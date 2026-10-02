@@ -29,9 +29,9 @@ cp .env.example .env   # set a real SECRET_KEY
 docker compose up -d
 ```
 
-The app is served on port 8090, with a first admin account already created (`Admin` / `admin`). You'll be asked to set a real username and password the first time you log in. That's it for a plain, single-machine setup, no reverse proxy, no backups.
+The app is served on port 8090 (change it with `WILIK_PORT` in `.env`), with a first admin account already created (`Admin` / `admin`). You'll be asked to set a real username and password the first time you log in. That's it for a plain, single-machine setup, no reverse proxy, no backups.
 
-Updates then arrive on their own: Watchtower checks for new images every few minutes and rolls them out automatically, no manual steps, no maintenance window.
+Updates then arrive on their own: Watchtower checks for new images every few minutes and rolls them out automatically, no manual steps, no maintenance window. (Already updating containers another way? Set `WATCHTOWER_REPLICAS=0` in `.env` to turn the bundled Watchtower off.)
 
 For HTTPS/reverse proxies, off-site backups, rolling back, running your own fork with your own CI/registry, or moving an older install onto this setup, see [DEPLOY.md](DEPLOY.md).
 

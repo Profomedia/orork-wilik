@@ -17,7 +17,9 @@ services:
     build: ./frontend
     image: ghcr.io/joostvanopdorp/wilik-frontend:latest
     ports:
-      - "8090:80"
+      # WILIK_PORT in .env changes the published port. Set it to e.g. 127.0.0.1:8090
+      # to keep Wilik off the LAN when a reverse proxy reaches it over a Docker network.
+      - "${WILIK_PORT:-8090}:80"
     depends_on:
       - backend
     restart: unless-stopped
@@ -29,6 +31,11 @@ services:
     # newer Docker Engine API versions ("client version 1.25 is too old"). This is
     # a drop-in, actively maintained fork with the same config/behavior.
     image: nickfedor/watchtower
+    # On by default. Set WATCHTOWER_REPLICAS=0 in .env if something else (e.g. Renovate,
+    # Komodo) already keeps the images up to date on this host. (deploy.replicas rather
+    # than scale: older Compose versions silently ignore scale: 0.)
+    deploy:
+      replicas: ${WATCHTOWER_REPLICAS:-1}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
