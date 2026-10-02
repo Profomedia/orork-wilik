@@ -7,6 +7,11 @@ import requests
 from bs4 import BeautifulSoup
 from flask import Blueprint, jsonify, request
 from flask_login import login_required
+from requests.adapters import HTTPAdapter
+from urllib3.connection import HTTPConnection, HTTPSConnection
+from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
+from urllib3.exceptions import NewConnectionError
+from urllib3.util import connection as urllib3_connection
 
 SCRAPE_MAX_BYTES = 5 * 1024 * 1024
 MAX_SCRAPE_REDIRECTS = 5
@@ -32,20 +37,91 @@ SCRAPE_HEADERS_BROWSER = {
 scrape_bp = Blueprint("scrape", __name__, url_prefix="/api")
 
 
+def resolve_public_ips(hostname):
+    """Every address hostname resolves to, or None if it doesn't resolve or any of them
+    is loopback/private/link-local/reserved/multicast."""
+    try:
+        addrinfo = socket.getaddrinfo(hostname, None)
+    except socket.gaierror:
+        return None
+    ips = []
+    for family, _, _, _, sockaddr in addrinfo:
+        ip = ipaddress.ip_address(sockaddr[0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            return None
+        if ip not in ips:
+            ips.append(ip)
+    return ips
+
+
 def is_safe_scrape_url(url):
     """Blocks SSRF: only allow public http(s) hosts, never loopback/private/link-local addresses."""
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https") or not parsed.hostname:
         return False
-    try:
-        addrinfo = socket.getaddrinfo(parsed.hostname, None)
-    except socket.gaierror:
-        return False
-    for family, _, _, _, sockaddr in addrinfo:
-        ip = ipaddress.ip_address(sockaddr[0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
-            return False
-    return True
+    return resolve_public_ips(parsed.hostname) is not None
+
+
+class _PublicOnlyConnectionMixin:
+    """Resolves and checks the host at the moment the socket is opened, then connects to
+    exactly those checked addresses. Checking a URL up front isn't enough on its own: the
+    socket layer would resolve the name a second time, and a DNS server that answers with
+    a public IP first and an internal one the next time (DNS rebinding) would get past it.
+    The hostname itself stays untouched, so the Host header, SNI and certificate checks
+    work as usual."""
+
+    def _new_conn(self):
+        ips = resolve_public_ips(self._dns_host)
+        if ips is None:
+            raise NewConnectionError(self, f"Refusing to connect to {self.host}: not a public address")
+        error = None
+        for ip in ips:
+            try:
+                return urllib3_connection.create_connection(
+                    (str(ip), self.port),
+                    self.timeout,
+                    source_address=self.source_address,
+                    socket_options=self.socket_options,
+                )
+            except OSError as e:
+                error = e
+        raise NewConnectionError(self, f"Failed to establish a new connection: {error}") from error
+
+
+class _PublicOnlyHTTPConnection(_PublicOnlyConnectionMixin, HTTPConnection):
+    pass
+
+
+class _PublicOnlyHTTPSConnection(_PublicOnlyConnectionMixin, HTTPSConnection):
+    pass
+
+
+class _PublicOnlyHTTPConnectionPool(HTTPConnectionPool):
+    ConnectionCls = _PublicOnlyHTTPConnection
+
+
+class _PublicOnlyHTTPSConnectionPool(HTTPSConnectionPool):
+    ConnectionCls = _PublicOnlyHTTPSConnection
+
+
+class _PublicOnlyAdapter(HTTPAdapter):
+    def init_poolmanager(self, *args, **kwargs):
+        super().init_poolmanager(*args, **kwargs)
+        self.poolmanager.pool_classes_by_scheme = {
+            "http": _PublicOnlyHTTPConnectionPool,
+            "https": _PublicOnlyHTTPSConnectionPool,
+        }
+
+
+def public_only_session():
+    session = requests.Session()
+    # no HTTP(S)_PROXY from the environment: through a proxy, it's the proxy that resolves
+    # and connects to the target, so the address check above would never see it
+    session.trust_env = False
+    adapter = _PublicOnlyAdapter()
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
 
 
 @scrape_bp.route("/scrape", methods=["POST"])
@@ -58,13 +134,13 @@ def scrape_url():
     if not is_safe_scrape_url(url):
         return jsonify({"error": "That URL can't be fetched"}), 400
 
-    def fetch(headers):
-        # allow_redirects=False + manual follow: a redirect target is never re-checked by
-        # is_safe_scrape_url() above, so a public URL could otherwise 302 to an internal
-        # address (or DNS-rebind to one) and slip past the up-front check entirely
+    def fetch(session, headers):
+        # the session only ever connects to public addresses (see _PublicOnlyConnectionMixin),
+        # redirects included. Following them by hand still keeps a redirect to another
+        # scheme (file:, ftp:, ...) out and gives a clear error for an internal target.
         current_url = url
         for _ in range(MAX_SCRAPE_REDIRECTS + 1):
-            response = requests.get(current_url, timeout=5, headers=headers, stream=True, allow_redirects=False)
+            response = session.get(current_url, timeout=5, headers=headers, stream=True, allow_redirects=False)
             if response.is_redirect or response.is_permanent_redirect:
                 location = response.headers.get("Location")
                 response.close()
@@ -85,13 +161,14 @@ def scrape_url():
             return bytes(chunks)
         raise requests.RequestException("Too many redirects")
 
-    try:
-        content = fetch(SCRAPE_HEADERS_BOT)
-    except requests.RequestException:
+    with public_only_session() as session:
         try:
-            content = fetch(SCRAPE_HEADERS_BROWSER)
+            content = fetch(session, SCRAPE_HEADERS_BOT)
         except requests.RequestException:
-            return jsonify({"error": "Could not fetch that URL"}), 400
+            try:
+                content = fetch(session, SCRAPE_HEADERS_BROWSER)
+            except requests.RequestException:
+                return jsonify({"error": "Could not fetch that URL"}), 400
 
     soup = BeautifulSoup(content, "html.parser")
 
