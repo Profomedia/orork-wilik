@@ -32,10 +32,11 @@ services:
     # a drop-in, actively maintained fork with the same config/behavior.
     image: nickfedor/watchtower
     # On by default. Set WATCHTOWER_REPLICAS=0 in .env if something else (e.g. Renovate,
-    # Komodo) already keeps the images up to date on this host. (deploy.replicas rather
-    # than scale: older Compose versions silently ignore scale: 0.)
-    deploy:
-      replicas: ${WATCHTOWER_REPLICAS:-1}
+    # Komodo) already keeps the images up to date on this host. Needs Docker Compose
+    # 2.24 or newer; older versions silently ignore scale: 0. (Not deploy.replicas:
+    # tools that read this file without interpolation, like Komodo, expect a number
+    # there and then can't see any service.)
+    scale: ${WATCHTOWER_REPLICAS:-1}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
