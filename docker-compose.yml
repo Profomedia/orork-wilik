@@ -26,26 +26,6 @@ services:
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
 
-  watchtower:
-    # containrrr/watchtower is unmaintained (archived Dec 2025) and fails against
-    # newer Docker Engine API versions ("client version 1.25 is too old"). This is
-    # a drop-in, actively maintained fork with the same config/behavior.
-    image: nickfedor/watchtower
-    # On by default. Set WATCHTOWER_REPLICAS=0 in .env if something else (e.g. Renovate,
-    # Komodo) already keeps the images up to date on this host. Needs Docker Compose
-    # 2.24 or newer; older versions silently ignore scale: 0. (Not deploy.replicas:
-    # tools that read this file without interpolation, like Komodo, expect a number
-    # there and then can't see any service.)
-    scale: ${WATCHTOWER_REPLICAS:-1}
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      WATCHTOWER_CLEANUP: "true"
-      WATCHTOWER_LABEL_ENABLE: "true"
-      WATCHTOWER_POLL_INTERVAL: "300"
-      # WATCHTOWER_NOTIFICATION_URL: "" # optional: shoutrrr URL (Slack/email/etc) to get notified on auto-update
-    restart: unless-stopped
-
   backup:
     profiles: ["backup"]
     image: offen/docker-volume-backup:v2

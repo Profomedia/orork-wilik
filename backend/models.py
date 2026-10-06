@@ -21,7 +21,7 @@ class User(UserMixin, db.Model):
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
     email = db.Column(db.String(255), nullable=True)
     list_name = db.Column(db.String(100), nullable=True)  # null = use the computed default below
-    currency = db.Column(db.String(4), nullable=False, default="€")
+    currency = db.Column(db.String(4), nullable=False, default="Ksh")
     decimal_separator = db.Column(db.String(10), nullable=False, default=",")
     theme_color = db.Column(db.String(7), nullable=True)  # hex code, e.g. "#0d9488"; null = default theme
     must_change_password = db.Column(db.Boolean, nullable=False, default=False)
