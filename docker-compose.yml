@@ -3,7 +3,7 @@ name: wilik
 services:
   backend:
     build: ./backend
-    image: ghcr.io/joostvanopdorp/wilik-backend:latest
+    image: ghcr.io/profomedia/orork-wilik-backend:latest
     environment:
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
     volumes:
@@ -17,7 +17,7 @@ services:
 
   frontend:
     build: ./frontend
-    image: ghcr.io/joostvanopdorp/wilik-frontend:latest
+    image: ghcr.io/profomedia/orork-wilik-frontend:latest
     ports:
       # WILIK_PORT in .env changes the published port. Set it to e.g. 127.0.0.1:8090
       # to keep Wilik off the LAN when a reverse proxy reaches it over a Docker network.
