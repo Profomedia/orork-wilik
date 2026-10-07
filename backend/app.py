@@ -1,7 +1,7 @@
 import os
 from datetime import timedelta
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -22,13 +22,15 @@ if app.config["SECRET_KEY"] == DEFAULT_DEV_SECRET_KEY:
         flush=True,
     )
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///wilik.db"
+IMAGE_STORAGE = "/app/uploads"
 
 # not everyone self-hosting this puts it behind HTTPS (LAN-only setups, plain http://,
 # reverse proxies without TLS...) -- SESSION_COOKIE_SECURE would silently break login
 # for them since browsers refuse to send a Secure cookie back over plain HTTP. Off by
 # default to keep that working out of the box; opt in via .env once you're sure every
 # request reaches this app over HTTPS.
-app.config["SESSION_COOKIE_SECURE"] = os.environ.get("SESSION_COOKIE_SECURE", "false").lower() == "true"
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get(
+    "SESSION_COOKIE_SECURE", "false").lower() == "true"
 # no legitimate flow here needs the cookie sent cross-site, so this is safe to always enable
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
@@ -81,7 +83,8 @@ def bootstrap_db():
     Run after 'flask db upgrade' -- assumes the schema already exists."""
     with app.app_context():
         if User.query.count() == 0:
-            admin = User(username="Admin", is_admin=True, must_change_password=True)
+            admin = User(username="Admin", is_admin=True,
+                         must_change_password=True)
             token = issue_setup_token(admin)
             db.session.add(admin)
             db.session.commit()
@@ -94,6 +97,11 @@ def bootstrap_db():
         if AppSettings.query.count() == 0:
             db.session.add(AppSettings(id=1, app_name="Wilik"))
             db.session.commit()
+
+
+@app.route("/api/uploads/<path:filename>")
+def uploaded_file(filename):
+    return send_from_directory(IMAGE_STORAGE, filename)
 
 
 if __name__ == "__main__":

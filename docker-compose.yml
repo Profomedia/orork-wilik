@@ -8,6 +8,8 @@ services:
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
     volumes:
       - wilik-data:/app/instance
+      - ${WILIK_IMAGE_STORAGE}:/app/uploads
+
     restart: unless-stopped
     labels:
       - "com.centurylinklabs.watchtower.enable=true"

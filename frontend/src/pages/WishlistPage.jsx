@@ -54,19 +54,41 @@ function WishlistPage({ currentUser }) {
       })
   }
 
-  function handleCreate(values) {
-    fetch(API_URL, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(values),
+  function handleCreate(formData) {
+  fetch(API_URL, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  })
+    .then((response) =>
+      response.json().then((data) => ({
+        ok: response.ok,
+        data,
+      }))
+    )
+    .then(({ ok, data }) => {
+      if (!ok) {
+        console.error(
+          'Failed to create item:',
+          data
+        )
+        return
+      }
+
+      setItems((current) => [
+        ...current,
+        data,
+      ])
+
+      setIsAdding(false)
     })
-      .then((response) => response.json())
-      .then((newGift) => {
-        setItems((current) => [...current, newGift])
-        setIsAdding(false)
-      })
-  }
+    .catch((error) => {
+      console.error(
+        'Failed to create item:',
+        error
+      )
+    })
+}
 
   function handleUpdate(id, values) {
     fetch(`${API_URL}/${id}`, {
