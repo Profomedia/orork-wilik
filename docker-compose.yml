@@ -15,16 +15,14 @@ services:
       - "docker-volume-backup.stop-during-backup=true"
 
   frontend:
-    image: wilik-frontend-dev
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.dev
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    command: npm run dev -- --host 0.0.0.0
+    image: ghcr.io/profomedia/orork-wilik-frontend:latest
     ports:
-      - "8091:5173"
+      - "${WILIK_PORT:-8090}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
   backup:
     profiles: ["backup"]
