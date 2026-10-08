@@ -1,7 +1,8 @@
+@import "tailwindcss";
 .app {
   text-align: left;
   padding: 0 32px 48px;
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
 }
 
@@ -216,13 +217,7 @@
   background: var(--border);
 }
 
-.gift-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  max-width: 700px;
-  margin: 0 auto;
-}
+
 
 .empty-state {
   display: flex;
@@ -1329,6 +1324,17 @@ label.checkbox-row input[type='checkbox'] {
 
 .theme-swatch--selected {
   border-color: var(--text-h);
+}
+@media (max-width: 1200px) {
+  .gift-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .gift-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {

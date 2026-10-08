@@ -183,7 +183,7 @@ function WishlistPage({ currentUser }) {
 
   return (
     <>
-      <div className="wishlist-toolbar">
+      <div className="wishlist-toolbar ">
         <h2>{currentUser.list_name}</h2>
         <button
           className={isAdding ? undefined : 'btn-primary'}
@@ -200,22 +200,24 @@ function WishlistPage({ currentUser }) {
         </button>
       </div>
       <main>
-        <div className="gift-grid">
+        <div className="mx-auto grid w-full max-w-[1600px] grid-cols-[repeat(auto-fit,minmax(320px,420px))] justify-center gap-6 !mt-10">
           {isAdding && (
-            <GiftForm
-              defaultCurrency={currentUser.currency}
-              onSubmit={handleCreate}
-              onCancel={() => setIsAdding(false)}
-            />
+            <div className="col-span-full">
+  <GiftForm
+    defaultCurrency={currentUser.currency}
+    onSubmit={handleCreate}
+    onCancel={() => setIsAdding(false)}
+  />
+</div>
           )}
           {!isAdding && isLoading && (
-            <div className="empty-state">
+            <div className="empty-state col-span-full">
               <SpinnerIcon width={32} height={32} />
               <p>Loading your wishlist…</p>
             </div>
           )}
           {!isAdding && !isLoading && activeItems.length === 0 && (
-            <div className="empty-state">
+            <div className="empty-state col-span-full">
               <SparkleIcon />
               <h3>Your wishlist is empty</h3>
               <p>Add your first gift idea to get started</p>
